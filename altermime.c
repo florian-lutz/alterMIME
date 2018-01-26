@@ -44,6 +44,7 @@ char ALTERMIMEAPP_USAGE[]="altermime --input=<input mime pack>   ( --input=- for
 "	[--remove=<remove file name (regex)>] (if filename contains a /, matches on mime-type )\n"
 "	[--removeall]\n"
 "	[--replace=<filename to replace> --with=<replace with>]\n"
+"   [--rename <regex for attachment filename match> --suffix <append this suffix to filename>\n"
 "	[--xheader=\"...\"\n"
 "	[--alter-header=\"...\" --alter-with=\"...\" --alter-mode=<prefix|suffix|replace>]\n"
 "	[--altersigned]\n"
@@ -79,6 +80,7 @@ char ALTERMIMEAPP_USAGE[]="altermime --input=<input mime pack>   ( --input=- for
 "\t--removeall, Remove all attachments\n"
 "\t--replace=, Replace attachments matching the given filename. Requires to\n"
 "\t\tbe used with --with.\n"
+"\t--rename, renames attachments matched with this Regular exp and appends --suffix to filename\n"
 "\t--with=, Replace the attachments specified by --replace with the file\n"
 "\t\tspecified.\n"
 "\t--xheader=, Insert a header line as specified into the first set of headers.\n"
@@ -123,6 +125,9 @@ struct ALTERMIMEAPP_globals {
 	int alter_mode;
 
 	int verbose;
+	
+    // use common struct for rename and replace functionality.
+    AM_Modify_attachment modify_att;
 };
 
 
@@ -217,10 +222,12 @@ int ALTERMIMEAPP_parse_args( struct ALTERMIMEAPP_globals *glb, int argc, char **
 				AM_set_altersigned(1);
 
 			} else if (strncmp(p, "replace",7)==0) {
-				glb->replace = p +strlen("replace=");
+				glb->modify_att.do_replace = 1;
+				glb->modify_att.replace = p +strlen("replace=");
 
 			} else if (strncmp(p, "with",4)==0) {
-				glb->with = p +strlen("with=");
+			    glb->modify_att.do_replace = 1;
+				glb->modify_att.replace_with = p +strlen("with=");
 
 			} else if (strncmp(p, "xheader",7)==0) {
 				glb->xheader = p +strlen("xheader=");
@@ -256,6 +263,16 @@ int ALTERMIMEAPP_parse_args( struct ALTERMIMEAPP_globals *glb, int argc, char **
 				else if (strncmp( q, "replace", strlen("replace"))==0) { glb->alter_mode = AM_HEADER_ADJUST_MODE_REPLACE; }
 				else { LOGGER_log("ERROR: Unknown header alter mode '%s'. Please use either of prefix, suffix or replace.", q); }
 			}
+			else if (strncasecmp(p, "rename", strlen ("rename")) == 0) {
+			    glb->modify_att.do_rename = 1;
+			    glb->modify_att.rename_this = p +strlen("rename=");
+            }
+            else if (strncasecmp(p, "suffix", strlen ("suffix")) == 0) {
+                // insert at the last rename regex position.
+                char * suffix = p +strlen ("suffix=");
+                int copy_len = (strlen(suffix) < MAX_SUFFIX_LEN) ? strlen(suffix) : MAX_SUFFIX_LEN;
+                strncpy (glb->modify_att.suffix, suffix, copy_len);
+            }
 			else if (strncmp(p, "log-stdout",strlen("log-stdout"))==0) { LOGGER_set_output_mode(_LOGGER_STDOUT); }
 			else if (strncmp(p, "log-stderr",strlen("log-stderr"))==0) { LOGGER_set_output_mode(_LOGGER_STDERR); }
 			else if (strncmp(p, "log-syslog",strlen("log-syslog"))==0) { LOGGER_set_output_mode(_LOGGER_SYSLOG); LOGGER_set_syslog_mode( LOG_MAIL|LOG_INFO ); }
@@ -303,8 +320,12 @@ int ALTERMIMEAPP_init( struct ALTERMIMEAPP_globals *glb )
 #endif
 
 	glb->remove_filename 		= NULL;
-	glb->replace 	= NULL;
-	glb->with 		= NULL;
+	glb->modify_att.replace = NULL;
+	glb->modify_att.do_rename = 0;
+	glb->modify_att.do_replace = 0;
+	glb->modify_att.replace_with = NULL;
+	glb->modify_att.rename_this = NULL;
+	bzero (glb->modify_att.suffix, MAX_SUFFIX_LEN);
 	glb->xheader 	= NULL;
 	glb->verbose 	= 0;
 
@@ -351,19 +372,27 @@ int main( int argc, char **argv )
 		exit(1);
 	}
 
-	if (((!glb.replace)&&(glb.with))||((glb.replace)&&(!glb.with)))
+	if (((!glb.modify_att.replace)&&(glb.modify_att.replace_with))||((glb.modify_att.replace)&&(!glb.modify_att.replace_with)))
 	{
 		LOGGER_log("Error: Both --replace= and --with= must be set\n");
 		exit(1);
 	}
 
-	if( glb.input_file && !(glb.alter_mode||glb.replace||glb.disclaimer_file||glb.remove_filename||glb.xheader||glb.pretext_file||glb.pretext_html_file)) {
+    if (((!glb.modify_att.rename_this)&&(strlen(glb.modify_att.suffix) > 0))
+    ||((glb.modify_att.rename_this)&&(strlen(glb.modify_att.suffix) < 0)))
+    {
+        LOGGER_log("Error: Both --rename= and --suffix= must be set\n");
+        exit(1);
+    }
+
+    if(glb.input_file && !(glb.alter_mode || glb.modify_att.replace || glb.disclaimer_file || glb.remove_filename || glb.xheader||glb.pretext_file||glb.pretext_html_file|| glb.modify_att.rename_this))
+    {
 		LOGGER_log("Error: Must specify an action for the input file.\n");
 		LOGGER_log( ALTERMIMEAPP_USAGE);
 		exit(1);
 	}
 
-	if ((strcmp(glb.input_file,"-") == 0) && (/**glb.disclaimer_file||**/glb.replace||glb.xheader)) {
+	if ((strcmp(glb.input_file,"-") == 0) && (/**glb.disclaimer_file||**/glb.modify_att.replace||glb.xheader)) {
 		LOGGER_log("Error: reading/writing from stdin/stdout not implemented for --xheader,--disclaimer, or --replace.\n");
 		LOGGER_log(ALTERMIMEAPP_USAGE);
 		exit(1);
@@ -409,14 +438,23 @@ int main( int argc, char **argv )
 		AM_alter_header( glb.input_file, glb.alter_header, glb.alter_with, glb.alter_mode );
 	}
 
-	if ((glb.replace)&&(glb.with)) AM_attachment_replace( glb.input_file, glb.replace, glb.with);
-
 #ifdef ALTERMIME_PRETEXT
 	AM_set_pretext(0);
 #endif
-	if (glb.disclaimer_file) AM_add_disclaimer( glb.input_file );
+
+    int disclaimer_added = -1;
+    if (glb.disclaimer_file) disclaimer_added = AM_add_disclaimer( glb.input_file );
 	if (glb.remove_filename) AM_nullify_attachment(glb.input_file, glb.remove_filename);
 	if (glb.xheader) AM_insert_Xheader( glb.input_file, glb.xheader);
+	// move renaming attachments and replacing files to the end...
+	// bug in altermime, that causes the renaming of attachments with
+	// adding disclaimers to mess up the email.
+	//TODO: fix the bug.
+    if ( ((glb.modify_att.replace)&&(glb.modify_att.replace_with) )
+       || (glb.modify_att.rename_this && strlen (glb.modify_att.suffix) > 0) )
+    {
+        AM_attachment_modify( glb.input_file, &glb.modify_att);
+    }
 	AM_done();
 
 #ifdef ALTERMIME_PRETEXT
@@ -434,7 +472,7 @@ int main( int argc, char **argv )
 			AM_set_HTMLtoo(1);
 		}
 		if (glb.pretext_b64_file) AM_set_disclaimer_b64( glb.pretext_b64_file, AM_DISCLAIMER_TYPE_FILENAME );
-		AM_add_disclaimer( glb.input_file );
+		if (disclaimer_added == 0) AM_add_disclaimer( glb.input_file );
 	}
 #endif
 
