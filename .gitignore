@@ -1,0 +1,11 @@
+MIME_headers.o
+altermime
+boundary-stack.o
+ffget.o
+filename-filters.o
+libmime-decoders.o
+logger.o
+mime_alter.o
+pldstr.o
+qpe.o
+strstack.o
