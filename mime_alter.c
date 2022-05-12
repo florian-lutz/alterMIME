@@ -1568,21 +1568,21 @@ int AM_add_disclaimer_insert_html( 	struct AM_disclaimer_details *dd, FFGET_FILE
 		if((dd->boundary_found == 1) && (strncmp(boundary, line, boundary_length) == 0))
 		{
 
-		    if (!dd->html_inserted)
-		    {
-	            DAM LOGGER_log("%s:%d:AM_add_disclaimer_insert_html: End of boundary reached before html disclamer was added...",FL);
-	            if (glb.force_for_bad_html == 1)
-	            {
-	                DAM LOGGER_log("%s:%d:Forcing insertion of html disclaimer into non valid html body...",FL);
+			if (!dd->html_inserted)
+			{
+				DAM LOGGER_log("%s:%d:AM_add_disclaimer_insert_html: End of boundary reached before html disclamer was added...",FL);
+				if (glb.force_for_bad_html == 1)
+				{
+					DAM LOGGER_log("%s:%d:Forcing insertion of html disclaimer into non valid html body...",FL);
 
-	                dd->html_inserted = 1;
+					dd->html_inserted = 1;
 
-	                AM_disclaimer_html_perform_insertion( dd, f, newf );
+					AM_disclaimer_html_perform_insertion( dd, f, newf );
 
-	            }
-		    }
+				}
+			}
 
-		    DAM LOGGER_log("%s:%d:Adding boubndary; Finalizing adding HTML disclaimer...",FL);
+			DAM LOGGER_log("%s:%d:Adding boubndary; Finalizing adding HTML disclaimer...",FL);
 			// write the boundary line
 			fprintf(newf, "%s", line);
 
@@ -3975,7 +3975,8 @@ int AM_attachment_modify_recurse( struct MIMEH_header_info *hinfo, FFGET_FILE *f
         char *new_attachment_filename = NULL;
         // final finename should not be bigger than the suffix + filename lengths.
         char final_fname[_MIMEH_FILENAMELEN_MAX + 1 + MAX_SUFFIX_LEN + 1] = {'0'};
-        strncpy (final_fname, hinfo->filename, strlen (hinfo->filename));
+        strncpy (final_fname, hinfo->filename, sizeof(final_fname)-1);
+        final_fname[sizeof(final_fname)-1] = '\0';
         if (regresult == 0)
 		{
 			// If we did have a filename "HIT" in these headers
@@ -4013,9 +4014,10 @@ int AM_attachment_modify_recurse( struct MIMEH_header_info *hinfo, FFGET_FILE *f
 			{
             if (new_attachment_filename) {
                 bzero (final_fname, sizeof (final_fname));
-                strncpy (final_fname, new_attachment_filename, strlen (new_attachment_filename) );
+                strncpy (final_fname, new_attachment_filename, sizeof(final_fname)-1);
+                final_fname[sizeof(final_fname)-1] = '\0';
             }
-            strncat(final_fname, ma->suffix, strlen (ma->suffix));
+            strncat(final_fname, ma->suffix, sizeof(final_fname)-strlen(final_fname)-1);
         }
 
         if (regresult == 0 || renameregresult == 0)

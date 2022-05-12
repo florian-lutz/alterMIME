@@ -9,7 +9,7 @@
 #								opposite of a disclaimer.
 ALTERMIME_OPTIONS=-DALTERMIME_PRETEXT
 #ALTERMIME_OPTIONS=
-CFLAGS=-Wall -Werror -g -I. -O2 $(ALTERMIME_OPTIONS)
+CFLAGS=-Wall -Werror -Wno-format-truncation -g -I. -O2 $(ALTERMIME_OPTIONS)
 OBJS= strstack.o mime_alter.o ffget.o pldstr.o filename-filters.o logger.o MIME_headers.o libmime-decoders.o boundary-stack.o qpe.o
 
 
