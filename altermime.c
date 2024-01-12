@@ -21,7 +21,7 @@ Description:   Altermime is a program/object which will allow arbitary alteratio
 
 /* Global DEFINES */
 char ALTERMIMEAPP_VERSION[]="alterMIME v0.3.12 (May 2023) by Paul L Daniels - http://www.pldaniels.com/altermime\n"
-"(Jan 2024) contributions from https://github.com/(a1non2ymous|mss|paulgregg|florian-lutz)/\n";
+"(Jan 2024) contributions from https://github.com/(a1non2ymous|mss|sje30|paulgregg|florian-lutz)/\n";
 
 char ALTERMIMEAPP_USAGE[]="altermime --input=<input mime pack>   ( --input=- for stdin )\n"
 "\t[--disclaimer=<disclaimer file>]\n"
