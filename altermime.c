@@ -20,42 +20,47 @@ Description:   Altermime is a program/object which will allow arbitary alteratio
 #include "logger.h"
 
 /* Global DEFINES */
-char ALTERMIMEAPP_VERSION[]="alterMIME v0.3.12 (May 2023) by Paul L Daniels - http://www.pldaniels.com/altermime\n";
+char ALTERMIMEAPP_VERSION[]="alterMIME v0.3.12 (May 2023) by Paul L Daniels - http://www.pldaniels.com/altermime\n"
+"(Jan 2024) contributions from https://github.com/(a1non2ymous|mss|paulgregg|florian-lutz)/\n";
+
 char ALTERMIMEAPP_USAGE[]="altermime --input=<input mime pack>   ( --input=- for stdin )\n"
-"	[--disclaimer=<disclaimer file>]\n"
-"	[--disclaimer-html=<HTML disclaimer file>]\n"
-"	[--disclaimer-b64=<BASE64 encoded dislcaimer>]\n"
-"	[--htmltoo]\n"
+"\t[--disclaimer=<disclaimer file>]\n"
+"\t[--disclaimer-html=<HTML disclaimer file>]\n"
+"\t[--disclaimer-b64=<BASE64 encoded dislcaimer>]\n"
+"\t[--htmltoo]\n"
+
 #ifdef DISPOS
-"	[--textpos=<positioning code>]\n"
-"	[--htmlpos=<positioning code>]\n"
+"\t[--textpos=<positioning code>]\n"
+"\t[--htmlpos=<positioning code>]\n"
 #endif
 
 #ifdef ALTERMIME_PRETEXT
-/*"	[--pretext] Insert disclaimer files in pretext mode.\n"*/ // By implication, pretext is inserted based on the file status below.
-"	[--pretext=<pretext file>]\n"
-"	[--pretext-html=<pretext HTML file>]\n"
-"	[--pretext-b64=<BASE64 encoded pretext >]\n"
+/*"\t[--pretext] Insert disclaimer files in pretext mode.\n"*/ // By implication, pretext is inserted based on the file status below.
+"\t[--pretext=<pretext file>]\n"
+"\t[--pretext-html=<pretext HTML file>]\n"
+"\t[--pretext-b64=<BASE64 encoded pretext >]\n"
 #endif
 
-"	[--force-into-b64]\n"
-"	[--force-for-bad-html]\n"
-"	[--multipart-insert]\n"
-"	[--remove=<remove file name (regex)>] (if filename contains a /, matches on mime-type )\n"
-"	[--removeall]\n"
-"	[--replace=<filename to replace> --with=<replace with>]\n"
-"   [--rename <regex for attachment filename match> --suffix <append this suffix to filename>\n"
-"	[--xheader=\"...\"\n"
-"	[--alter-header=\"...\" --alter-with=\"...\" --alter-mode=<prefix|suffix|replace>]\n"
-"	[--altersigned]\n"
-"	[--tmpdir=<directory>\n"
-"	[--no-qmail-bounce]\n"
-"	[--verbose]\n"
-"	[--log-stdout]\n"
-"	[--log-stderr]\n"
-"	[--log-syslog]\n"
-"	[--debug]\n"
-"	[--version]\n\n"
+"\t[--force-into-b64]\n"
+"\t[--force-for-bad-html]\n"
+"\t[--multipart-insert]\n"
+"\t[--remove=<remove file name (regex)>] (if filename contains a /, matches on mime-type )\n"
+"\t[--removeall]\n"
+"\t[--replace=<filename to replace> --with=<replace with>]\n"
+"\t[--rename <regex for attachment filename match> --suffix <append this suffix to filename>\n"
+"\t[--xheader=\"...\"\n"
+"\t[--alter-header=\"...\" --alter-with=\"...\" --alter-mode=<prefix|suffix|replace>]\n"
+"\t[--altersigned]\n"
+"\t[--tmpdir=<directory>\n"
+"\t[--no-qmail-bounce]\n"
+"\t[--verbose]\n"
+"\t[--log-stdout]\n"
+"\t[--log-stderr]\n"
+"\t[--log-syslog]\n"
+"\t[--debug]\n"
+"\t[--version]\n"
+"\t[--help]\n"
+"\n"
 "Option Descriptions:\n"
 "\t--input=, Sets the mailpack file to be the filename supplied,\n"
 "\t\tif the filename is a single '-' (hyphen) then the mailpack\n"
@@ -96,6 +101,7 @@ char ALTERMIMEAPP_USAGE[]="altermime --input=<input mime pack>   ( --input=- for
 "\t--log-syslog, Send all output messages to syslog\n"
 "\t--debug, Provide greater verbosity and debugging information\n"
 "\t--version, display the alterMIME version string\n"
+"\t--help, display this help text\n"
 "\n";
 
 /* Global variables / settings */
@@ -106,15 +112,20 @@ struct ALTERMIMEAPP_globals {
 	char tmpdir[1024];
 	char *input_file;
 	int input_is_stdin;
+
 	char *disclaimer_file;
 	char *disclaimer_html_file;
 	char *disclaimer_b64_file;
 	char *disclaimer_attachment;
 	int   disclaimer_insert;
+
+#ifdef ALTERMIME_PRETEXT
 	char *pretext_file;
 	char *pretext_html_file;
 	char *pretext_b64_file;
 	int   pretext_insert;
+#endif
+
 	char *remove_filename;
 	char *replace;
 	char *with;
@@ -124,10 +135,10 @@ struct ALTERMIMEAPP_globals {
 	char *alter_with;
 	int alter_mode;
 
-	int verbose;
-	
-    // use common struct for rename and replace functionality.
-    AM_Modify_attachment modify_att;
+	//int verbose;
+
+	// use common struct for rename and replace functionality.
+	AM_Modify_attachment modify_att;
 };
 
 
@@ -169,7 +180,7 @@ int ALTERMIMEAPP_parse_args( struct ALTERMIMEAPP_globals *glb, int argc, char **
 			} else if (strncmp(p,"multipart-insert", strlen("multipart-insert"))==0) {
 				AM_set_multipart_insert(1);
 
-
+#ifdef ALTERMIME_PRETEXT
 			} else if (strncmp(p,"pretext=", strlen("pretext="))==0) {
 				glb->pretext_file = p +strlen("pretext=");
 				glb->pretext_insert = 1;
@@ -184,8 +195,7 @@ int ALTERMIMEAPP_parse_args( struct ALTERMIMEAPP_globals *glb, int argc, char **
 				glb->pretext_html_file = p +strlen("pretext-b64=");
 				AM_set_force_into_b64(1);
 				glb->pretext_insert = 1;
-
-
+#endif
 
 			} else if (strncmp(p,"disclaimer=",11)==0) {
 				glb->disclaimer_file = p +strlen("disclaimer=");
@@ -236,6 +246,10 @@ int ALTERMIMEAPP_parse_args( struct ALTERMIMEAPP_globals *glb, int argc, char **
 				fprintf(stdout,"%s",ALTERMIMEAPP_VERSION);
 				exit(0);
 
+			} else if (strncmp(p, "help",4)==0) {
+				fprintf(stdout,"%s",ALTERMIMEAPP_USAGE);
+				exit(0);
+
 			} else if (strncmp(p, "debug", 5)==0) {
 				AM_set_debug(1);
 
@@ -264,22 +278,21 @@ int ALTERMIMEAPP_parse_args( struct ALTERMIMEAPP_globals *glb, int argc, char **
 				else { LOGGER_log("ERROR: Unknown header alter mode '%s'. Please use either of prefix, suffix or replace.", q); }
 			}
 			else if (strncasecmp(p, "rename", strlen ("rename")) == 0) {
-			    glb->modify_att.do_rename = 1;
-			    glb->modify_att.rename_this = p +strlen("rename=");
-            }
-            else if (strncasecmp(p, "suffix", strlen ("suffix")) == 0) {
-                // insert at the last rename regex position.
-                char * suffix = p +strlen ("suffix=");
-                int copy_len = (strlen(suffix) < MAX_SUFFIX_LEN) ? strlen(suffix) : MAX_SUFFIX_LEN;
-                strncpy (glb->modify_att.suffix, suffix, copy_len);
-            }
+				glb->modify_att.do_rename = 1;
+				glb->modify_att.rename_this = p +strlen("rename=");
+			}
+			else if (strncasecmp(p, "suffix", strlen ("suffix")) == 0) {
+				// insert at the last rename regex position.
+				char * suffix = p +strlen ("suffix=");
+				int copy_len = (strlen(suffix) < MAX_SUFFIX_LEN) ? strlen(suffix) : MAX_SUFFIX_LEN;
+				strncpy (glb->modify_att.suffix, suffix, copy_len);
+			}
 			else if (strncmp(p, "log-stdout",strlen("log-stdout"))==0) { LOGGER_set_output_mode(_LOGGER_STDOUT); }
 			else if (strncmp(p, "log-stderr",strlen("log-stderr"))==0) { LOGGER_set_output_mode(_LOGGER_STDERR); }
 			else if (strncmp(p, "log-syslog",strlen("log-syslog"))==0) { LOGGER_set_output_mode(_LOGGER_SYSLOG); LOGGER_set_syslog_mode( LOG_MAIL|LOG_INFO ); }
 			else
 			{
 				LOGGER_log("Error, unknown parameter \"%s\"\n",p);
-				LOGGER_log("%s",ALTERMIMEAPP_USAGE);
 				exit(1);
 			} /* if-ELSE */
 		} /* if argv == '--' */
@@ -305,8 +318,9 @@ Changes:
 \------------------------------------------------------------------*/
 int ALTERMIMEAPP_init( struct ALTERMIMEAPP_globals *glb )
 {
-	glb->input_is_stdin			= 0;
-	glb->input_file 				= NULL;
+	glb->input_is_stdin		= 0;
+	glb->input_file 		= NULL;
+
 	glb->disclaimer_file 		= NULL;
 	glb->disclaimer_html_file 	= NULL;
 	glb->disclaimer_b64_file	= NULL;
@@ -314,20 +328,20 @@ int ALTERMIMEAPP_init( struct ALTERMIMEAPP_globals *glb )
 
 #ifdef ALTERMIME_PRETEXT
 	glb->pretext_insert		= 0;
-	glb->pretext_file			= NULL;
+	glb->pretext_file		= NULL;
 	glb->pretext_html_file	= NULL;
 	glb->pretext_b64_file	= NULL;
 #endif
 
-	glb->remove_filename 		= NULL;
+	glb->remove_filename = NULL;
 	glb->modify_att.replace = NULL;
 	glb->modify_att.do_rename = 0;
 	glb->modify_att.do_replace = 0;
 	glb->modify_att.replace_with = NULL;
 	glb->modify_att.rename_this = NULL;
 	bzero (glb->modify_att.suffix, MAX_SUFFIX_LEN);
-	glb->xheader 	= NULL;
-	glb->verbose 	= 0;
+	glb->xheader = NULL;
+	//glb->verbose = 0;
 
 	glb->alter_header = NULL;
 	glb->alter_with = NULL;
@@ -378,15 +392,15 @@ int main( int argc, char **argv )
 		exit(1);
 	}
 
-    if (((!glb.modify_att.rename_this)&&(strlen(glb.modify_att.suffix) > 0))
-    ||((glb.modify_att.rename_this)&&(strlen(glb.modify_att.suffix) < 0)))
-    {
-        LOGGER_log("Error: Both --rename= and --suffix= must be set\n");
-        exit(1);
-    }
+	if (((!glb.modify_att.rename_this)&&(strlen(glb.modify_att.suffix) > 0))
+	||((glb.modify_att.rename_this)&&(strlen(glb.modify_att.suffix) < 0)))
+	{
+	LOGGER_log("Error: Both --rename= and --suffix= must be set\n");
+		exit(1);
+	}
 
-    if(glb.input_file && !(glb.alter_mode || glb.modify_att.replace || glb.disclaimer_file || glb.remove_filename || glb.xheader||glb.pretext_file||glb.pretext_html_file|| glb.modify_att.rename_this))
-    {
+	if(glb.input_file && !(glb.alter_mode || glb.modify_att.replace || glb.disclaimer_file || glb.remove_filename || glb.xheader||glb.pretext_file||glb.pretext_html_file|| glb.modify_att.rename_this))
+	{
 		LOGGER_log("Error: Must specify an action for the input file.\n");
 		LOGGER_log( ALTERMIMEAPP_USAGE);
 		exit(1);
@@ -442,19 +456,19 @@ int main( int argc, char **argv )
 	AM_set_pretext(0);
 #endif
 
-    int disclaimer_added = -1;
-    if (glb.disclaimer_file) disclaimer_added = AM_add_disclaimer( glb.input_file );
-	if (glb.remove_filename) AM_nullify_attachment(glb.input_file, glb.remove_filename);
-	if (glb.xheader) AM_insert_Xheader( glb.input_file, glb.xheader);
+	int disclaimer_added = -1;
+	if (glb.disclaimer_file) disclaimer_added = AM_add_disclaimer( glb.input_file );
+	if (glb.remove_filename) AM_nullify_attachment( glb.input_file, glb.remove_filename );
+	if (glb.xheader) AM_insert_Xheader( glb.input_file, glb.xheader );
 	// move renaming attachments and replacing files to the end...
 	// bug in altermime, that causes the renaming of attachments with
 	// adding disclaimers to mess up the email.
 	//TODO: fix the bug.
-    if ( ((glb.modify_att.replace)&&(glb.modify_att.replace_with) )
-       || (glb.modify_att.rename_this && strlen (glb.modify_att.suffix) > 0) )
-    {
-        AM_attachment_modify( glb.input_file, &glb.modify_att);
-    }
+	if ( ((glb.modify_att.replace)&&(glb.modify_att.replace_with)) ||
+		  (glb.modify_att.rename_this && strlen(glb.modify_att.suffix) > 0) )
+	{
+		AM_attachment_modify( glb.input_file, &glb.modify_att );
+	}
 	AM_done();
 
 #ifdef ALTERMIME_PRETEXT

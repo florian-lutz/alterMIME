@@ -168,9 +168,11 @@ int AM_done( void )
 	if (glb.disclaimer_b64 != NULL) free(glb.disclaimer_b64);
 
 #ifdef ALTERMIME_PRETEXT
+	/*
 	if (glb.pretext_plain != NULL) free(glb.pretext_plain);
 	if (glb.pretext_HTML != NULL) free(glb.pretext_HTML);
 	if (glb.pretext_b64 != NULL) free(glb.pretext_b64);
+	*/
 #endif
 
 	return 0;
